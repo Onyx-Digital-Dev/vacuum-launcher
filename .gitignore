@@ -1,0 +1,25 @@
+# Build output
+/target/
+**/*.rs.bk
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Instruction files
+vacuum-launcher-layout.txt
+onyx-vac-instructions-1.txt
+
+# Runtime
+*.sock
+*.pid
+
+# Config (user-specific)
+config.toml
