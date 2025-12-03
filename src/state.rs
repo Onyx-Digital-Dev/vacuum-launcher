@@ -90,7 +90,7 @@ pub struct WeatherInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LauncherShortcuts {
     pub left_links: Vec<LinkButton>,
-    pub rofi_command: String,
+    pub launcher_command: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -232,7 +232,7 @@ impl Default for LauncherShortcuts {
                     icon_path: None,
                 },
             ],
-            rofi_command: "rofi -show drun".to_string(),
+            launcher_command: "fuzzel".to_string(),
         }
     }
 }

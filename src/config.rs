@@ -29,7 +29,7 @@ pub struct WeatherConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortcutsConfig {
     pub left_links: Vec<LinkConfig>,
-    pub rofi_command: String,
+    pub launcher_command: String,
     pub browser_command: String,
 }
 
@@ -87,7 +87,7 @@ impl Default for Config {
                         icon_path: Some("/usr/share/icons/hicolor/48x48/apps/osv.svg".to_string()),
                     },
                 ],
-                rofi_command: "rofi -show drun".to_string(),
+                launcher_command: "fuzzel".to_string(),
                 browser_command: "firefox".to_string(),
             },
             network: NetworkConfig {
@@ -175,9 +175,9 @@ fn validate_and_fix_config(config: &mut Config) -> Result<()> {
     }
     
     // Validate commands are not empty
-    if config.shortcuts.rofi_command.trim().is_empty() {
-        tracing::warn!("Rofi command is empty, using default");
-        config.shortcuts.rofi_command = "rofi -show drun".to_string();
+    if config.shortcuts.launcher_command.trim().is_empty() {
+        tracing::warn!("Launcher command is empty, using default");
+        config.shortcuts.launcher_command = "fuzzel".to_string();
     }
     
     if config.shortcuts.browser_command.trim().is_empty() {

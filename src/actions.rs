@@ -108,11 +108,11 @@ impl ActionHandler {
     }
 
     // Application Launcher
-    pub fn launch_rofi(&self, command: &str) -> Result<()> {
+    pub fn launch_app(&self, command: &str) -> Result<()> {
         Command::new("sh")
             .args(&["-c", command])
             .spawn()
-            .context("Failed to launch rofi")?;
+            .context("Failed to launch application launcher")?;
         Ok(())
     }
 

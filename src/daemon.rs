@@ -23,7 +23,7 @@ pub enum IpcCommand {
     Logout,
     Reboot,
     Shutdown,
-    LaunchRofi,
+    LaunchApp,
     LaunchUrl(String),
 }
 
@@ -270,7 +270,7 @@ impl VacuumDaemon {
                         icon_path: link.icon_path.clone(),
                     })
                     .collect();
-                state_guard.launcher_shortcuts.rofi_command = config.shortcuts.rofi_command.clone();
+                state_guard.launcher_shortcuts.launcher_command = config.shortcuts.launcher_command.clone();
             }
         }
     }
@@ -414,8 +414,8 @@ async fn handle_command(
                 Err(e) => IpcResponse::Error(e.to_string()),
             }
         }
-        IpcCommand::LaunchRofi => {
-            match actions.launch_rofi(&config.shortcuts.rofi_command) {
+        IpcCommand::LaunchApp => {
+            match actions.launch_app(&config.shortcuts.launcher_command) {
                 Ok(_) => IpcResponse::Success,
                 Err(e) => IpcResponse::Error(e.to_string()),
             }
