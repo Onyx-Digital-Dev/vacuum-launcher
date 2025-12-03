@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, Context};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -97,31 +97,94 @@ impl Default for Config {
     }
 }
 
-pub fn get_config_path() -> PathBuf {
-    let mut config_dir = dirs::config_dir().expect("Could not find config directory");
+pub fn get_config_path() -> Result<PathBuf> {
+    let mut config_dir = dirs::config_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not find config directory"))?;
     config_dir.push("vacuum");
-    std::fs::create_dir_all(&config_dir).expect("Could not create vacuum config directory");
+    std::fs::create_dir_all(&config_dir)
+        .with_context(|| format!("Could not create vacuum config directory: {:?}", config_dir))?;
     config_dir.push("config.toml");
-    config_dir
+    Ok(config_dir)
 }
 
 pub fn load_config() -> Result<Config> {
-    let config_path = get_config_path();
+    let config_path = get_config_path()?;
     
     if !config_path.exists() {
         let default_config = Config::default();
-        save_config(&default_config)?;
+        save_config(&default_config)
+            .with_context(|| format!("Failed to save default config to {:?}", config_path))?;
         return Ok(default_config);
     }
     
-    let config_content = std::fs::read_to_string(&config_path)?;
-    let config: Config = toml::from_str(&config_content)?;
+    let config_content = std::fs::read_to_string(&config_path)
+        .with_context(|| format!("Failed to read config file: {:?}", config_path))?;
+        
+    let mut config: Config = toml::from_str(&config_content)
+        .with_context(|| format!("Failed to parse TOML config file: {:?}", config_path))?;
+    
+    // Validate and fix config
+    validate_and_fix_config(&mut config)?;
+    
     Ok(config)
 }
 
 pub fn save_config(config: &Config) -> Result<()> {
-    let config_path = get_config_path();
-    let config_content = toml::to_string_pretty(config)?;
-    std::fs::write(&config_path, config_content)?;
+    let config_path = get_config_path()?;
+    let config_content = toml::to_string_pretty(config)
+        .context("Failed to serialize config to TOML")?;
+    std::fs::write(&config_path, config_content)
+        .with_context(|| format!("Failed to write config file: {:?}", config_path))?;
+    Ok(())
+}
+
+fn validate_and_fix_config(config: &mut Config) -> Result<()> {
+    // Validate URLs
+    for link in &config.shortcuts.left_links {
+        if !link.url.starts_with("http://") && !link.url.starts_with("https://") {
+            return Err(anyhow::anyhow!(
+                "Invalid URL in shortcuts: '{}' must start with http:// or https://", 
+                link.url
+            ));
+        }
+        
+        if link.label.is_empty() {
+            return Err(anyhow::anyhow!("Shortcut label cannot be empty for URL: {}", link.url));
+        }
+    }
+    
+    // Validate email format (basic check)
+    if !config.user.email.contains('@') {
+        tracing::warn!("Invalid email format: {}", config.user.email);
+        config.user.email = "user@example.com".to_string();
+    }
+    
+    // Validate weather update interval
+    if config.weather.update_interval_minutes == 0 {
+        tracing::warn!("Weather update interval cannot be 0, setting to 15 minutes");
+        config.weather.update_interval_minutes = 15;
+    }
+    
+    if config.weather.update_interval_minutes > 1440 {
+        tracing::warn!("Weather update interval too large ({}), setting to 60 minutes", config.weather.update_interval_minutes);
+        config.weather.update_interval_minutes = 60;
+    }
+    
+    // Validate commands are not empty
+    if config.shortcuts.rofi_command.trim().is_empty() {
+        tracing::warn!("Rofi command is empty, using default");
+        config.shortcuts.rofi_command = "rofi -show drun".to_string();
+    }
+    
+    if config.shortcuts.browser_command.trim().is_empty() {
+        tracing::warn!("Browser command is empty, using default");
+        config.shortcuts.browser_command = "firefox".to_string();
+    }
+    
+    // Validate hotkey format (basic check)
+    if !config.hotkey.toggle_overlay.contains('+') && !config.hotkey.toggle_overlay.starts_with("Super") {
+        tracing::warn!("Hotkey format may be invalid: {}", config.hotkey.toggle_overlay);
+    }
+    
     Ok(())
 }

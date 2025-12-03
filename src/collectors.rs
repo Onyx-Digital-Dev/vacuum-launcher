@@ -19,7 +19,7 @@ pub struct SystemCollector {
 
 impl SystemCollector {
     pub fn new() -> Self {
-        let audio_visualizer = AudioVisualizer::new(32); // 32 frequency bands
+        let mut audio_visualizer = AudioVisualizer::new(32); // 32 frequency bands
         let _ = audio_visualizer.initialize(); // Try to initialize, but don't fail if it doesn't work
         
         Self {
@@ -31,7 +31,7 @@ impl SystemCollector {
     }
 
     pub fn with_weather_api_key(api_key: String) -> Self {
-        let audio_visualizer = AudioVisualizer::new(32);
+        let mut audio_visualizer = AudioVisualizer::new(32);
         let _ = audio_visualizer.initialize();
         
         Self {

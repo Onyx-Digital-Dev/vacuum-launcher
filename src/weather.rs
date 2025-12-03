@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::state::WeatherInfo;
-use anyhow::{Result, Context};
+use anyhow::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -15,13 +15,17 @@ struct OpenWeatherResponse {
 #[derive(Debug, Deserialize)]
 struct OpenWeatherMain {
     temp: f64,
+    #[allow(dead_code)]
     feels_like: f64,
+    #[allow(dead_code)]
     humidity: i32,
 }
 
 #[derive(Debug, Deserialize)]
 struct OpenWeatherWeather {
+    #[allow(dead_code)]
     id: i32,
+    #[allow(dead_code)]
     main: String,
     description: String,
     icon: String,
@@ -60,27 +64,60 @@ impl WeatherClient {
             api_key
         );
 
-        let response = self.client
-            .get(&url)
-            .send()
-            .await
-            .context("Failed to fetch weather data")?;
+        let response = match self.client.get(&url).send().await {
+            Ok(resp) => resp,
+            Err(e) => {
+                tracing::warn!("Failed to connect to weather service: {}", e);
+                return Ok(self.fallback_weather(config, "Network error"));
+            }
+        };
 
-        if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "Weather API returned error: {}",
-                response.status()
-            ));
+        // Handle specific HTTP status codes
+        let status = response.status();
+        if !status.is_success() {
+            match status.as_u16() {
+                401 => {
+                    tracing::warn!("Weather API key is invalid or missing");
+                    return Ok(self.fallback_weather(config, "Invalid API key"));
+                }
+                403 => {
+                    tracing::warn!("Weather API access forbidden - check API key permissions");
+                    return Ok(self.fallback_weather(config, "API access forbidden"));
+                }
+                429 => {
+                    tracing::warn!("Weather API rate limit exceeded");
+                    return Ok(self.fallback_weather(config, "Rate limit exceeded"));
+                }
+                404 => {
+                    tracing::warn!("Weather location '{}' not found", config.weather.location);
+                    return Ok(self.fallback_weather(config, "Location not found"));
+                }
+                500..=599 => {
+                    tracing::warn!("Weather service is currently unavailable ({})", status);
+                    return Ok(self.fallback_weather(config, "Service unavailable"));
+                }
+                _ => {
+                    tracing::warn!("Weather API returned unexpected status: {}", status);
+                    return Ok(self.fallback_weather(config, "API error"));
+                }
+            }
         }
 
-        let weather_data: OpenWeatherResponse = response
-            .json()
-            .await
-            .context("Failed to parse weather response")?;
+        let weather_data: OpenWeatherResponse = match response.json().await {
+            Ok(data) => data,
+            Err(e) => {
+                tracing::warn!("Failed to parse weather response: {}", e);
+                return Ok(self.fallback_weather(config, "Invalid response"));
+            }
+        };
 
-        let primary_weather = weather_data.weather
-            .first()
-            .context("No weather data in response")?;
+        let primary_weather = match weather_data.weather.first() {
+            Some(weather) => weather,
+            None => {
+                tracing::warn!("Weather response contained no weather data");
+                return Ok(self.fallback_weather(config, "No weather data"));
+            }
+        };
 
         let location_display = format!("{}, {}", weather_data.name, weather_data.sys.country);
         let temperature_c = weather_data.main.temp.round() as i32;
@@ -100,6 +137,15 @@ impl WeatherClient {
             location_display: config.weather.location.clone(),
             temperature_c: 20,
             condition: "Weather data unavailable".to_string(),
+            icon_name: Some("unknown".to_string()),
+        }
+    }
+
+    fn fallback_weather(&self, config: &Config, reason: &str) -> WeatherInfo {
+        WeatherInfo {
+            location_display: config.weather.location.clone(),
+            temperature_c: 20,
+            condition: format!("Weather unavailable: {}", reason),
             icon_name: Some("unknown".to_string()),
         }
     }
