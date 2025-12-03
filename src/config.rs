@@ -38,6 +38,7 @@ pub struct LinkConfig {
     pub label: String,
     pub url: String,
     pub icon_name: String,
+    pub icon_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,14 +56,14 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             user: UserConfig {
-                display_name: None,
+                display_name: Some("Onyx User".to_string()),
                 email: "user@example.com".to_string(),
-                github_url: "https://github.com".to_string(),
+                github_url: "https://github.com/username".to_string(),
             },
             weather: WeatherConfig {
                 location: "Seattle, WA".to_string(),
-                api_key: None,
-                provider: "stub".to_string(),
+                api_key: Some("YOUR_OPENWEATHER_API_KEY_HERE".to_string()),
+                provider: "openweathermap".to_string(),
                 update_interval_minutes: 15,
             },
             shortcuts: ShortcutsConfig {
@@ -71,24 +72,27 @@ impl Default for Config {
                         label: "GitHub".to_string(),
                         url: "https://github.com".to_string(),
                         icon_name: "github".to_string(),
+                        icon_path: Some("/usr/share/icons/hicolor/48x48/apps/github.svg".to_string()),
                     },
                     LinkConfig {
                         label: "Mail".to_string(),
                         url: "https://protonmail.com".to_string(),
                         icon_name: "mail".to_string(),
+                        icon_path: Some("/usr/share/icons/hicolor/48x48/apps/mail.svg".to_string()),
                     },
                     LinkConfig {
                         label: "OSV".to_string(),
                         url: "https://onyxdigital.dev/OnyxOSV".to_string(),
                         icon_name: "osv".to_string(),
+                        icon_path: Some("/usr/share/icons/hicolor/48x48/apps/osv.svg".to_string()),
                     },
                 ],
                 rofi_command: "rofi -show drun".to_string(),
                 browser_command: "firefox".to_string(),
             },
             network: NetworkConfig {
-                monitor_interface: None,
-                vpn_name: None,
+                monitor_interface: Some("eth0".to_string()),
+                vpn_name: Some("mullvad".to_string()),
             },
             hotkey: HotkeyConfig {
                 toggle_overlay: "Super+Shift+Space".to_string(),

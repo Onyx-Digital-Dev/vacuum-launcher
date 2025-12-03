@@ -98,6 +98,7 @@ pub struct LinkButton {
     pub label: String,
     pub url: String,
     pub icon_name: String,
+    pub icon_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,16 +217,19 @@ impl Default for LauncherShortcuts {
                     label: "GitHub".to_string(),
                     url: "https://github.com".to_string(),
                     icon_name: "github".to_string(),
+                    icon_path: None,
                 },
                 LinkButton {
                     label: "Mail".to_string(),
                     url: "https://protonmail.com".to_string(),
                     icon_name: "mail".to_string(),
+                    icon_path: None,
                 },
                 LinkButton {
                     label: "OSV".to_string(),
                     url: "https://onyxdigital.dev/OnyxOSV".to_string(),
                     icon_name: "osv".to_string(),
+                    icon_path: None,
                 },
             ],
             rofi_command: "rofi -show drun".to_string(),

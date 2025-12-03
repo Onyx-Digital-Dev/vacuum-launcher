@@ -267,6 +267,7 @@ impl VacuumDaemon {
                         label: link.label.clone(),
                         url: link.url.clone(),
                         icon_name: link.icon_name.clone(),
+                        icon_path: link.icon_path.clone(),
                     })
                     .collect();
                 state_guard.launcher_shortcuts.rofi_command = config.shortcuts.rofi_command.clone();
