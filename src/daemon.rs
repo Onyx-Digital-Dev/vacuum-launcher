@@ -179,6 +179,10 @@ impl VacuumDaemon {
                         if let Ok(volume_state) = collector.collect_volume_state() {
                             state_guard.volume_state = volume_state;
                         }
+                        
+                        if let Ok(visualizer_data) = collector.collect_audio_visualizer_data() {
+                            state_guard.audio_visualizer = visualizer_data;
+                        }
                     }
                 }
             });
@@ -188,7 +192,11 @@ impl VacuumDaemon {
         {
             let state = state.clone();
             let config = config.clone();
-            let collector = SystemCollector::new();
+            let collector = if let Some(ref api_key) = config.weather.api_key {
+                SystemCollector::with_weather_api_key(api_key.clone())
+            } else {
+                SystemCollector::new()
+            };
             
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(config.weather.update_interval_minutes as u64 * 60));
@@ -196,7 +204,7 @@ impl VacuumDaemon {
                     interval.tick().await;
                     
                     if let Ok(mut state_guard) = state.try_write() {
-                        if let Ok(weather_info) = collector.collect_weather_info(&config) {
+                        if let Ok(weather_info) = collector.collect_weather_info(&config).await {
                             state_guard.weather_info = weather_info;
                         }
                     }

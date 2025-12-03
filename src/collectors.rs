@@ -3,6 +3,8 @@ use crate::state::{
     VolumeState, WeatherInfo, UserInfo, Toggles
 };
 use crate::config::Config;
+use crate::weather::WeatherClient;
+use crate::cava::{AudioVisualizer, AudioVisualizerData};
 use anyhow::{Result, Context};
 use sysinfo::System;
 use std::process::Command;
@@ -11,13 +13,32 @@ use std::collections::HashMap;
 pub struct SystemCollector {
     system: System,
     prev_network_stats: HashMap<String, (u64, u64)>,
+    weather_client: WeatherClient,
+    audio_visualizer: AudioVisualizer,
 }
 
 impl SystemCollector {
     pub fn new() -> Self {
+        let audio_visualizer = AudioVisualizer::new(32); // 32 frequency bands
+        let _ = audio_visualizer.initialize(); // Try to initialize, but don't fail if it doesn't work
+        
         Self {
             system: System::new_all(),
             prev_network_stats: HashMap::new(),
+            weather_client: WeatherClient::new(None),
+            audio_visualizer,
+        }
+    }
+
+    pub fn with_weather_api_key(api_key: String) -> Self {
+        let audio_visualizer = AudioVisualizer::new(32);
+        let _ = audio_visualizer.initialize();
+        
+        Self {
+            system: System::new_all(),
+            prev_network_stats: HashMap::new(),
+            weather_client: WeatherClient::new(Some(api_key)),
+            audio_visualizer,
         }
     }
 
@@ -314,15 +335,8 @@ impl SystemCollector {
         })
     }
 
-    pub fn collect_weather_info(&self, config: &Config) -> Result<WeatherInfo> {
-        // For now, return stub data
-        // TODO: Implement actual weather API integration
-        Ok(WeatherInfo {
-            location_display: config.weather.location.clone(),
-            temperature_c: 20,
-            condition: "Partly Cloudy".to_string(),
-            icon_name: Some("partly-cloudy".to_string()),
-        })
+    pub async fn collect_weather_info(&self, config: &Config) -> Result<WeatherInfo> {
+        self.weather_client.fetch_weather(config).await
     }
 
     pub fn collect_user_info(&self, config: &Config) -> Result<UserInfo> {
@@ -347,6 +361,12 @@ impl SystemCollector {
             vpn_connected,
             bluetooth_enabled,
         })
+    }
+
+    pub fn collect_audio_visualizer_data(&self) -> Result<AudioVisualizerData> {
+        self.audio_visualizer
+            .get_frequency_data()
+            .or_else(|_| Ok(AudioVisualizerData::default()))
     }
 
     fn check_wifi_enabled(&self) -> Result<bool> {

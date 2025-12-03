@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::cava::AudioVisualizerData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VacuumState {
@@ -9,6 +10,7 @@ pub struct VacuumState {
     pub network_traffic: NetworkTraffic,
     pub audio_status: AudioStatus,
     pub volume_state: VolumeState,
+    pub audio_visualizer: AudioVisualizerData,
     pub weather_info: WeatherInfo,
     pub launcher_shortcuts: LauncherShortcuts,
     pub toggles: Toggles,
@@ -115,6 +117,7 @@ impl Default for VacuumState {
             network_traffic: NetworkTraffic::default(),
             audio_status: AudioStatus::default(),
             volume_state: VolumeState::default(),
+            audio_visualizer: AudioVisualizerData::default(),
             weather_info: WeatherInfo::default(),
             launcher_shortcuts: LauncherShortcuts::default(),
             toggles: Toggles::default(),
