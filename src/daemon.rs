@@ -15,6 +15,7 @@ use std::sync::Arc;
 pub enum IpcCommand {
     ToggleOverlay,
     GetState,
+    GetAudioVisualizer,
     SetVolume(u8),
     ToggleMute,
     ToggleWifi,
@@ -31,6 +32,7 @@ pub enum IpcCommand {
 pub enum IpcResponse {
     Success,
     State(VacuumState),
+    AudioVisualizer(crate::cava::AudioVisualizerData),
     Error(String),
     ToggleResult(bool),
 }
@@ -57,20 +59,34 @@ impl VacuumDaemon {
     pub async fn run(&mut self) -> Result<()> {
         tracing::info!("Starting Vacuum Launcher daemon");
 
-        // Ensure only one instance
+        // Ensure only one instance using atomic socket binding
         let socket_path = get_socket_path();
+        let pid_path = get_pid_path();
+        
+        // First, try to connect to existing socket to see if daemon is alive
         if socket_path.exists() {
-            // Try to connect to existing instance
-            if let Ok(_stream) = UnixStream::connect(&socket_path).await {
-                return Err(anyhow::anyhow!("Daemon already running"));
+            match UnixStream::connect(&socket_path).await {
+                Ok(_) => {
+                    // Connection successful - daemon is running
+                    return Err(anyhow::anyhow!("Daemon already running"));
+                }
+                Err(_) => {
+                    // Connection failed - daemon is dead, remove stale socket
+                    tracing::info!("Removing stale socket file");
+                    std::fs::remove_file(&socket_path)?;
+                }
             }
-            // Remove stale socket
-            std::fs::remove_file(&socket_path)?;
         }
 
-        // Start IPC server
+        // Now attempt to bind - this is atomic and prevents race conditions
         let listener = UnixListener::bind(&socket_path)
-            .context("Failed to bind Unix socket")?;
+            .with_context(|| {
+                format!("Failed to bind socket at {:?}. Another daemon may be starting simultaneously.", socket_path)
+            })?;
+        
+        // Successfully bound - write our PID for diagnostics
+        std::fs::write(&pid_path, std::process::id().to_string())
+            .context("Failed to write PID file")?;
 
         // Start update loops
         self.start_update_loops().await;
@@ -111,6 +127,7 @@ impl VacuumDaemon {
 
         // Cleanup
         let _ = std::fs::remove_file(&socket_path);
+        let _ = std::fs::remove_file(&get_pid_path());
         tracing::info!("Daemon shutting down gracefully");
         Ok(())
     }
@@ -120,7 +137,7 @@ impl VacuumDaemon {
         let config = self.config.clone();
         let shutdown_tx = self.shutdown_tx.clone();
 
-        // System info update loop (every 5 seconds)
+        // System info update loop (reduced to every 10 seconds for memory efficiency)
         {
             let state = state.clone();
             let config = config.clone();
@@ -128,7 +145,7 @@ impl VacuumDaemon {
             let mut shutdown_rx = shutdown_tx.subscribe();
             
             tokio::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(5));
+                let mut interval = tokio::time::interval(Duration::from_secs(10));
                 loop {
                     tokio::select! {
                         _ = interval.tick() => {
@@ -160,14 +177,14 @@ impl VacuumDaemon {
             });
         }
 
-        // Network update loop (every 2 seconds)
+        // Network update loop (reduced to every 5 seconds for memory efficiency)
         {
             let state = state.clone();
             let mut collector = SystemCollector::new();
             let mut shutdown_rx = shutdown_tx.subscribe();
             
             tokio::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(2));
+                let mut interval = tokio::time::interval(Duration::from_secs(5));
                 loop {
                     tokio::select! {
                         _ = interval.tick() => {
@@ -191,14 +208,14 @@ impl VacuumDaemon {
             });
         }
 
-        // Audio update loop (every 1 second)
+        // Audio update loop (reduced to every 3 seconds for memory efficiency)
         {
             let state = state.clone();
             let collector = SystemCollector::new();
             let mut shutdown_rx = shutdown_tx.subscribe();
             
             tokio::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(1));
+                let mut interval = tokio::time::interval(Duration::from_secs(3));
                 loop {
                     tokio::select! {
                         _ = interval.tick() => {
@@ -211,9 +228,8 @@ impl VacuumDaemon {
                                     state_guard.volume_state = volume_state;
                                 }
                                 
-                                if let Ok(visualizer_data) = collector.collect_audio_visualizer_data() {
-                                    state_guard.audio_visualizer = visualizer_data;
-                                }
+                                // Only collect audio visualizer data when explicitly requested
+                                // This saves significant CPU/memory resources when GUI is not displaying visualizer
                             }
                         },
                         _ = shutdown_rx.recv() => {
@@ -365,6 +381,13 @@ async fn handle_command(
                 state_guard => IpcResponse::State(state_guard.clone()),
             }
         }
+        IpcCommand::GetAudioVisualizer => {
+            let collector = SystemCollector::new();
+            match collector.collect_audio_visualizer_data() {
+                Ok(visualizer_data) => IpcResponse::AudioVisualizer(visualizer_data),
+                Err(e) => IpcResponse::Error(e.to_string()),
+            }
+        }
         IpcCommand::SetVolume(volume) => {
             match actions.set_volume(volume) {
                 Ok(_) => IpcResponse::Success,
@@ -434,6 +457,14 @@ pub fn get_socket_path() -> PathBuf {
         .or_else(|| dirs::cache_dir())
         .unwrap_or_else(|| PathBuf::from("/tmp"));
     path.push("vacuum-launcher.sock");
+    path
+}
+
+pub fn get_pid_path() -> PathBuf {
+    let mut path = dirs::runtime_dir()
+        .or_else(|| dirs::cache_dir())
+        .unwrap_or_else(|| PathBuf::from("/tmp"));
+    path.push("vacuum-launcher.pid");
     path
 }
 

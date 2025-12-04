@@ -38,12 +38,15 @@ fn build_cava_integration() {
         return;
     }
     
-    // Configure with cmake
+    // Configure with cmake - manually specify paths for NixOS
     let cmake_status = Command::new("cmake")
         .current_dir(&cava_build_dir)
         .arg("../../../cava")
         .arg("-DCMAKE_BUILD_TYPE=Release")
         .arg("-DBUILD_SHARED_LIBS=ON")
+        .arg("-DCMAKE_PREFIX_PATH=/run/current-system/sw")
+        .arg("-DFFTW3_INCLUDE_DIR=/run/current-system/sw/include")
+        .arg("-DFFTW3_LIBRARY=/run/current-system/sw/lib/libfftw3.so")
         .status();
     
     if cmake_status.is_err() || !cmake_status.unwrap().success() {

@@ -1,0 +1,3 @@
+/home/oskodiak/onyx/vacuum-launcher/cava_test_build/CMakeFiles/cavacore.dir
+/home/oskodiak/onyx/vacuum-launcher/cava_test_build/CMakeFiles/edit_cache.dir
+/home/oskodiak/onyx/vacuum-launcher/cava_test_build/CMakeFiles/rebuild_cache.dir

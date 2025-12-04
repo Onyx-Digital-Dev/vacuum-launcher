@@ -1,0 +1,2 @@
+/run/current-system/sw/bin/ar qc libcavacore.a CMakeFiles/cavacore.dir/cavacore.c.o
+/run/current-system/sw/bin/ranlib libcavacore.a
