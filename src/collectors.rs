@@ -23,7 +23,11 @@ impl SystemCollector {
         let _ = audio_visualizer.initialize(); // Try to initialize, but don't fail if it doesn't work
         
         Self {
-            system: System::new_all(),
+            system: System::new_with_specifics(
+                sysinfo::RefreshKind::new()
+                    .with_cpu(sysinfo::CpuRefreshKind::everything())
+                    .with_memory(sysinfo::MemoryRefreshKind::everything())
+            ),
             prev_network_stats: HashMap::new(),
             weather_client: WeatherClient::new(None),
             audio_visualizer,
@@ -35,7 +39,11 @@ impl SystemCollector {
         let _ = audio_visualizer.initialize();
         
         Self {
-            system: System::new_all(),
+            system: System::new_with_specifics(
+                sysinfo::RefreshKind::new()
+                    .with_cpu(sysinfo::CpuRefreshKind::everything())
+                    .with_memory(sysinfo::MemoryRefreshKind::everything())
+            ),
             prev_network_stats: HashMap::new(),
             weather_client: WeatherClient::new(Some(api_key)),
             audio_visualizer,
@@ -43,7 +51,8 @@ impl SystemCollector {
     }
 
     pub fn collect_system_info(&mut self) -> Result<SystemInfo> {
-        self.system.refresh_all();
+        self.system.refresh_cpu();
+        self.system.refresh_memory();
 
         let os_name = self.get_os_name()?;
         let hostname = System::host_name().unwrap_or_else(|| "unknown".to_string());
